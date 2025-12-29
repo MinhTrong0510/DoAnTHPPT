@@ -1,0 +1,430 @@
+classdef do_an_noi_suymlapp < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                      matlab.ui.Figure
+        EditField                     matlab.ui.control.EditField
+        KtqunisuyButton               matlab.ui.control.Button
+        athcnisuyEditField            matlab.ui.control.EditField
+        athcnisuyEditFieldLabel       matlab.ui.control.Label
+        NhpgitrcnnisuyEditField       matlab.ui.control.NumericEditField
+        NhpgitrcnnisuyEditFieldLabel  matlab.ui.control.Label
+        TmathcnisuyButton             matlab.ui.control.Button
+        ChnphngphpnisuyDropDown       matlab.ui.control.DropDown
+        ChnphngphpnisuyDropDownLabel  matlab.ui.control.Label
+        NhpdliuyEditField             matlab.ui.control.EditField
+        NhpdliuyEditFieldLabel        matlab.ui.control.Label
+        NhpdliuxEditField             matlab.ui.control.EditField
+        NhpdliuxEditFieldLabel        matlab.ui.control.Label
+        UIAxes                        matlab.ui.control.UIAxes
+    end
+
+    % Methods (Private) - Các hàm xử lý logic toán học và hỗ trợ
+    methods (Access = private)
+        
+        % =================================================================
+        % 1. HÀM CHUYỂN ĐỔI VÀ VẼ ĐỒ THỊ
+        % =================================================================
+        
+        % Hàm chuyển đổi vector hệ số đa thức thành chuỗi (Ví dụ: 2x^2 + 1)
+        function str = poly2str(~, p)
+            str = '';
+            n = length(p);
+            for i = 1:n
+                coef = p(i);
+                power = n - i;
+                
+                if abs(coef) < 1e-10 % Bỏ qua hệ số quá nhỏ (~0)
+                    continue;
+                end
+                
+                % Xử lý dấu
+                if coef > 0
+                    if ~isempty(str)
+                        str = [str ' + '];
+                    end
+                else
+                    str = [str ' - '];
+                end
+                
+                % Xử lý giá trị tuyệt đối của hệ số
+                abs_coef = abs(coef);
+                if abs_coef ~= 1 || power == 0
+                    str = [str num2str(abs_coef, '%.4g')];
+                end
+                
+                % Xử lý biến x và số mũ
+                if power == 1
+                    str = [str 'x'];
+                elseif power > 1
+                    if abs_coef ~= 1
+                        str = [str '*x^' num2str(power)];
+                    else
+                        str = [str 'x^' num2str(power)];
+                    end
+                end
+            end
+            
+            if isempty(str)
+                str = '0';
+            end
+            
+            % Xóa khoảng trắng thừa ở đầu nếu có
+            str = strtrim(str);
+        end
+        
+        % Hàm vẽ đồ thị
+        function updatePlot(app, x, y, p, x_val, y_val, method_name)
+            % Xóa đồ thị cũ
+            cla(app.UIAxes);
+            hold(app.UIAxes, 'on');
+            
+            % 1. Vẽ các điểm dữ liệu gốc (Màu đỏ, hình tròn)
+            plot(app.UIAxes, x, y, 'ro', 'MarkerFaceColor', 'r', 'MarkerSize', 8, 'DisplayName', 'Dữ liệu thực');
+            
+            % 2. Vẽ đường cong đa thức nội suy (Màu xanh dương)
+            x_min = min(x);
+            x_max = max(x);
+            range_x = x_max - x_min;
+            % Tạo vector x mịn để vẽ đường cong mượt
+            x_fit = linspace(x_min - 0.1*range_x, x_max + 0.1*range_x, 200);
+            y_fit = polyval(p, x_fit);
+            plot(app.UIAxes, x_fit, y_fit, 'b-', 'LineWidth', 1.5, 'DisplayName', ['Nội suy ' method_name]);
+            
+            % 3. Vẽ điểm kết quả nội suy (Màu xanh lá, dấu X)
+            if ~isempty(x_val) && ~isnan(y_val)
+                plot(app.UIAxes, x_val, y_val, 'gx', 'MarkerFaceColor','g', 'MarkerSize', 8, 'LineWidth', 2, 'DisplayName', 'Kết quả tìm được');
+            end
+            
+            % Trang trí đồ thị
+            title(app.UIAxes, ['Phương pháp: ' method_name]);
+            xlabel(app.UIAxes, 'X');
+            ylabel(app.UIAxes, 'Y');
+            grid(app.UIAxes, 'on');
+            legend(app.UIAxes, 'Location', 'best');
+            hold(app.UIAxes, 'off');
+        end
+        
+        % =================================================================
+        % 2. HÀM THUẬT TOÁN NỘI SUY RIÊNG
+        % =================================================================
+        
+        % Hàm phụ trợ: Chuyển đa thức Newton (hệ số a) sang vector hệ số chuẩn
+        function p_std = NewtonToStandardPoly(~, a, x)
+            n = length(x);
+            p_std = a(1); % Bắt đầu với f[x0]
+            
+            for k = 2:n
+                % Đa thức cơ sở Newton: w = (x-x1)(x-x2)...(x-x_{k-1})
+                w = 1;
+                for j = 1:k-1
+                    w = conv(w, [1, -x(j)]); % w = w * (x - x_j)
+                end
+                
+                % Term: a_k * w(x)
+                term = a(k) * w;
+                
+                % Đảm bảo p_std và term có cùng độ dài trước khi cộng (Fix lỗi kích thước)
+                len_p = length(p_std);
+                len_term = length(term);
+                
+                if len_term > len_p
+                    p_std = [zeros(1, len_term - len_p), p_std];
+                elseif len_p > len_term
+                    term = [zeros(1, len_p - len_term), term];
+                end
+                
+                p_std = p_std + term;
+            end
+        end
+        
+        % Hàm Nội suy Newton (Trả về vector hệ số đa thức chuẩn p)
+        function p = NewtonInterpolation(app, x, y)
+            n = length(x);
+            F = zeros(n, n);
+            F(:, 1) = y'; % Cột đầu tiên là f[xi]
+
+            % Tính bảng Tỷ hiệu chia (Divided Differences)
+            for j = 2:n
+                for i = j:n
+                    F(i, j) = (F(i, j-1) - F(i-1, j-1)) / (x(i) - x(i-j+1));
+                end
+            end
+
+            % Lấy các hệ số của đa thức Newton (phần tử trên đường chéo chính)
+            a = diag(F)';
+            
+            % Dùng hàm chuyển đổi đáng tin cậy
+            p = app.NewtonToStandardPoly(a, x);
+        end
+        
+        % Hàm Nội suy Lagrange (Trả về vector hệ số đa thức chuẩn p)
+        function p = LagrangeInterpolation(~, x, y)
+            n = length(x);
+            p = 0; % Khởi tạo đa thức kết quả (hệ số [0])
+
+            for k = 1:n
+                % Khởi tạo đa thức cơ sở Lk(x) = 1 (dạng hệ số chuẩn)
+                Lk = 1; 
+                
+                % Xây dựng đa thức cơ sở Lk(x)
+                for j = 1:n
+                    if k ~= j
+                        % Nhân các nhân tử (x - x_j) / (x_k - x_j)
+                        numerator = [1, -x(j)];
+                        denominator = x(k) - x(j);
+                        Lk = conv(Lk, numerator) / denominator;
+                    end
+                end
+                
+                % Cộng đa thức: p = p + y_k * Lk(x)
+                target_length = max(length(p), length(Lk));
+                p_padded = [zeros(1, target_length - length(p)), p];
+                Lk_padded = [zeros(1, target_length - length(Lk)), Lk];
+
+                p = p_padded + y(k) * Lk_padded;
+            end
+        end    end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Value changed function: NhpdliuxEditField
+        function NhpdliuxEditFieldValueChanged(app, event)
+
+            
+        end
+
+        % Value changed function: NhpdliuyEditField
+        function NhpdliuyEditFieldValueChanged(app, event)
+
+            
+        end
+
+        % Button pushed function: TmathcnisuyButton
+        function TmathcnisuyButtonPushed(app, event)
+           try
+                % 1. Lấy dữ liệu từ giao diện
+                x = str2num(app.NhpdliuxEditField.Value); 
+                y = str2num(app.NhpdliuyEditField.Value);
+                x_val = app.NhpgitrcnnisuyEditField.Value;
+                method = app.ChnphngphpnisuyDropDown.Value;
+                
+                % 2. Kiểm tra lỗi đầu vào
+                if isempty(x) || isempty(y)
+                    uialert(app.UIFigure, 'Vui lòng nhập dữ liệu X và Y.', 'Lỗi nhập liệu');
+                    return;
+                end
+                
+                if length(x) ~= length(y)
+                    uialert(app.UIFigure, 'Độ dài vector X và Y phải bằng nhau.', 'Lỗi kích thước');
+                    return;
+                end
+                
+                if length(unique(x)) ~= length(x)
+                     uialert(app.UIFigure, 'Các giá trị của X phải khác nhau đôi một.', 'Lỗi dữ liệu');
+                     return;
+                end
+                
+                % 3. TÍNH TOÁN ĐA THỨC NỘI SUY THEO PHƯƠNG PHÁP ĐÃ CHỌN (CHỈ DÙNG HÀM RIÊNG)
+                if strcmp(method, 'Newton')
+                    p = app.NewtonInterpolation(x, y); 
+                elseif strcmp(method, 'Lagrange')
+                    p = app.LagrangeInterpolation(x, y); 
+                else
+                    uialert(app.UIFigure, 'Phương pháp nội suy không hợp lệ.', 'Lỗi phương pháp');
+                    return;
+                end
+
+                % 4. Hiển thị Đa thức dạng chuỗi
+                polyString = app.poly2str(p);
+                app.athcnisuyEditField.Value = polyString;
+                
+                % 5. Vẽ đồ thị đa thức (chưa vẽ điểm nội suy)
+                y_val = NaN; 
+                app.updatePlot(x, y, p, x_val, y_val, method);
+                
+                % (Tùy chọn) Xóa ô kết quả cũ khi tính đa thức mới
+                app.EditField.Value = ''; 
+                uialert(app.UIFigure, ['Đã tìm thấy đa thức nội suy ' method ' và vẽ đồ thị thành công.'], 'Thông báo');
+                
+            catch ME
+                uialert(app.UIFigure, ['Đã xảy ra lỗi: ' ME.message], 'Lỗi hệ thống');
+            end
+        end
+
+        % Value changed function: ChnphngphpnisuyDropDown
+        function ChnphngphpnisuyDropDownValueChanged(app, event)
+
+            
+        end
+
+        % Button pushed function: KtqunisuyButton
+        function KtqunisuyButtonPushed(app, event)
+            try
+                % 1. Kiểm tra xem đa thức đã được tính chưa
+                polyString = app.athcnisuyEditField.Value;
+                if isempty(polyString)
+                    uialert(app.UIFigure, 'Vui lòng ấn "Tìm đa thức nội suy" trước.', 'Thiếu dữ liệu');
+                    return;
+                end
+                
+                % 2. Lấy lại dữ liệu
+                x = str2num(app.NhpdliuxEditField.Value); 
+                y = str2num(app.NhpdliuyEditField.Value);
+                x_val = app.NhpgitrcnnisuyEditField.Value;
+                method = app.ChnphngphpnisuyDropDown.Value;
+                
+                % 3. Tính lại hệ số đa thức p (Dùng hàm riêng đã chọn)
+                if strcmp(method, 'Newton')
+                    p = app.NewtonInterpolation(x, y); 
+                elseif strcmp(method, 'Lagrange')
+                    p = app.LagrangeInterpolation(x, y); 
+                else
+                    uialert(app.UIFigure, 'Phương pháp nội suy không hợp lệ.', 'Lỗi phương pháp');
+                    return;
+                end
+
+                % 4. Kiểm tra giá trị cần nội suy x_val
+                if isempty(x_val) || isnan(x_val)
+                    uialert(app.UIFigure, 'Vui lòng nhập giá trị cần nội suy.', 'Lỗi nhập liệu');
+                    return;
+                end
+                
+                % 5. Tính giá trị nội suy y_val = P(x_val)
+                y_val = polyval(p, x_val);
+                
+                % 6. Hiển thị kết quả số
+                app.EditField.Value = num2str(y_val, '%.6f');
+                
+                % 7. Cập nhật đồ thị để vẽ thêm điểm kết quả
+                app.updatePlot(x, y, p, x_val, y_val, method);
+            catch ME
+                uialert(app.UIFigure, ['Đã xảy ra lỗi: ' ME.message], 'Lỗi hệ thống');
+            end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Đồ thị hàm số nội suy và dữ liệu thực')
+            xlabel(app.UIAxes, 'X')
+            ylabel(app.UIAxes, 'Y')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.Position = [285 71 345 249];
+
+            % Create NhpdliuxEditFieldLabel
+            app.NhpdliuxEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuxEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuxEditFieldLabel.Position = [6 368 83 22];
+            app.NhpdliuxEditFieldLabel.Text = 'Nhập dữ liệu x';
+
+            % Create NhpdliuxEditField
+            app.NhpdliuxEditField = uieditfield(app.UIFigure, 'text');
+            app.NhpdliuxEditField.ValueChangedFcn = createCallbackFcn(app, @NhpdliuxEditFieldValueChanged, true);
+            app.NhpdliuxEditField.Position = [104 368 192 22];
+
+            % Create NhpdliuyEditFieldLabel
+            app.NhpdliuyEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuyEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuyEditFieldLabel.Position = [8 331 83 22];
+            app.NhpdliuyEditFieldLabel.Text = 'Nhập dữ liệu y';
+
+            % Create NhpdliuyEditField
+            app.NhpdliuyEditField = uieditfield(app.UIFigure, 'text');
+            app.NhpdliuyEditField.ValueChangedFcn = createCallbackFcn(app, @NhpdliuyEditFieldValueChanged, true);
+            app.NhpdliuyEditField.Position = [106 331 190 22];
+
+            % Create ChnphngphpnisuyDropDownLabel
+            app.ChnphngphpnisuyDropDownLabel = uilabel(app.UIFigure);
+            app.ChnphngphpnisuyDropDownLabel.HorizontalAlignment = 'right';
+            app.ChnphngphpnisuyDropDownLabel.Position = [335 368 151 22];
+            app.ChnphngphpnisuyDropDownLabel.Text = 'Chọn phương pháp nội suy';
+
+            % Create ChnphngphpnisuyDropDown
+            app.ChnphngphpnisuyDropDown = uidropdown(app.UIFigure);
+            app.ChnphngphpnisuyDropDown.Items = {'Newton', 'Lagrange'};
+            app.ChnphngphpnisuyDropDown.ValueChangedFcn = createCallbackFcn(app, @ChnphngphpnisuyDropDownValueChanged, true);
+            app.ChnphngphpnisuyDropDown.Position = [501 368 136 22];
+            app.ChnphngphpnisuyDropDown.Value = 'Newton';
+
+            % Create TmathcnisuyButton
+            app.TmathcnisuyButton = uibutton(app.UIFigure, 'push');
+            app.TmathcnisuyButton.ButtonPushedFcn = createCallbackFcn(app, @TmathcnisuyButtonPushed, true);
+            app.TmathcnisuyButton.Position = [335 331 295 22];
+            app.TmathcnisuyButton.Text = 'Tìm đa thức nội suy';
+
+            % Create NhpgitrcnnisuyEditFieldLabel
+            app.NhpgitrcnnisuyEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpgitrcnnisuyEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpgitrcnnisuyEditFieldLabel.Position = [9 263 130 22];
+            app.NhpgitrcnnisuyEditFieldLabel.Text = 'Nhập giá trị cần nội suy';
+
+            % Create NhpgitrcnnisuyEditField
+            app.NhpgitrcnnisuyEditField = uieditfield(app.UIFigure, 'numeric');
+            app.NhpgitrcnnisuyEditField.AllowEmpty = 'on';
+            app.NhpgitrcnnisuyEditField.Position = [147 263 130 22];
+            app.NhpgitrcnnisuyEditField.Value = [];
+
+            % Create athcnisuyEditFieldLabel
+            app.athcnisuyEditFieldLabel = uilabel(app.UIFigure);
+            app.athcnisuyEditFieldLabel.HorizontalAlignment = 'right';
+            app.athcnisuyEditFieldLabel.Position = [7 298 89 22];
+            app.athcnisuyEditFieldLabel.Text = 'Đa thức nội suy';
+
+            % Create athcnisuyEditField
+            app.athcnisuyEditField = uieditfield(app.UIFigure, 'text');
+            app.athcnisuyEditField.Position = [106 298 190 22];
+
+            % Create KtqunisuyButton
+            app.KtqunisuyButton = uibutton(app.UIFigure, 'push');
+            app.KtqunisuyButton.ButtonPushedFcn = createCallbackFcn(app, @KtqunisuyButtonPushed, true);
+            app.KtqunisuyButton.Position = [7 230 99 22];
+            app.KtqunisuyButton.Text = 'Kết quả nội suy';
+
+            % Create EditField
+            app.EditField = uieditfield(app.UIFigure, 'text');
+            app.EditField.Position = [122 230 164 22];
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = do_an_noi_suymlapp
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
