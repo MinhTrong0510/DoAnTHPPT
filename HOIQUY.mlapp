@@ -1,0 +1,234 @@
+classdef HOIQUY < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                 matlab.ui.Figure
+        yEditField               matlab.ui.control.EditField
+        NhpdliuyEditFieldLabel   matlab.ui.control.Label
+        xEditField               matlab.ui.control.EditField
+        NhpdliuxEditFieldLabel   matlab.ui.control.Label
+        hoiquyButton             matlab.ui.control.Button
+        ketquadudoanLabel        matlab.ui.control.Label
+        ketquaptLabel            matlab.ui.control.Label
+        xdudoanTextArea          matlab.ui.control.TextArea
+        GitrdonTextAreaLabel     matlab.ui.control.Label
+        ppDropDown               matlab.ui.control.DropDown
+        ChnPPHiquyDropDownLabel  matlab.ui.control.Label
+        UIAxes                   matlab.ui.control.UIAxes
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: hoiquyButton
+        function hoiquyButtonPushed(app, event)
+            str_x = string(app.xEditField.Value);
+            str_y = string(app.yEditField.Value);
+            str_x = strrep(str_x, ',',' ');
+            str_y = strrep(str_y, ',',' ');
+            x_data = str2num(str_x);
+            y_data = str2num(str_y);
+            if isempty(x_data) || isempty(y_data) || length(x_data) ~= length(y_data)
+                app.ketquaptLabel.Text = 'Lỗi: Kiểm tra lại dữ liệu nhập!';
+                return;
+            end
+            pp_hoiquy = app.ppDropDown.Value;
+            pt_hoiquy = '';
+            regression_fcn = @(x) 0;
+
+            switch pp_hoiquy
+                case 'Tuyến tính'
+                    coeffs = polyfit(x_data, y_data, 1);
+                    a = coeffs(1); 
+                    b = coeffs(2);
+                    
+                    pt_hoiquy = sprintf('y = %.4f*x + %.4f', a, b);
+                    regression_fcn = @(x) a*x + b;
+
+                case 'Hàm mũ (y = a*e^(bx))'
+                    if any(y_data <= 0)
+                        app.ketquaptLabel.Text = 'Lỗi: Giá trị y phải > 0'; return;
+                    end
+                    
+                    Y_data = log(y_data); 
+                    coeffs = polyfit(x_data, Y_data, 1);
+                    
+                    b_val = coeffs(1);      % Hệ số góc là b
+                    A_ln = coeffs(2);       % Hệ số chặn là ln(a)
+                    a_val = exp(A_ln);      % Tính a từ ln(a)
+                    
+                    pt_hoiquy = sprintf('y = %.4f * e^(%.4f * x)', a_val, b_val);
+                    regression_fcn = @(x) a_val * exp(b_val*x);
+
+                case 'Hàm mũ (y = a*x^b)'
+                    if any(x_data <= 0) || any(y_data <= 0)
+                        app.ketquaptLabel.Text = 'Lỗi: Cả x và y phải > 0'; return;
+                    end
+
+                    X_data = log(x_data);
+                    Y_data = log(y_data);
+                    
+                    coeffs = polyfit(X_data, Y_data, 1);
+                    
+                    b_val = coeffs(1);      % Hệ số góc chính là số mũ b
+                    A_ln = coeffs(2);       % Hệ số chặn là ln(a)
+                    a_val = exp(A_ln);      % Tính a từ ln(a)
+                    
+                    pt_hoiquy = sprintf('y = %.4f * x^(%.4f)', a_val, b_val);
+                    regression_fcn = @(x) a_val * (x.^b_val);
+
+                case 'Logarit'
+                    if any(x_data <= 0)
+                         app.ketquaptLabel.Text = 'Lỗi: Giá trị x phải > 0'; return;
+                    end
+
+                    X_data = log(x_data); 
+                    coeffs = polyfit(X_data, y_data, 1);
+                    a = coeffs(1); % Hệ số đi với ln(x)
+                    b = coeffs(2); % Hệ số tự do
+                    
+                    pt_hoiquy = sprintf('y = %.4f * ln(x) + %.4f', a, b);
+                    regression_fcn = @(x) a * log(x) + b;
+            end
+            app.ketquaptLabel.Text = pt_hoiquy;
+
+            str_xdudoan = string(app.xdudoanTextArea.Value);
+            str_xdudoan = strrep(str_xdudoan, ',', ' ');
+            x_dudoan = str2num(str_xdudoan);
+
+            if ~isempty(x_dudoan)
+                y_dudoan = regression_fcn(x_dudoan);
+                app.ketquadudoanLabel.Text = num2str(y_dudoan);
+            else
+                app.ketquadudoanLabel.Text = '';
+            end
+
+            cla(app.UIAxes);
+            plot(app.UIAxes, x_data, y_data, 'o', 'DisplayName','Dữ liệu thực');
+            hold(app.UIAxes,'on');
+            
+            x_ve = linspace(min(x_data), max(x_data), 100);
+            y_ve = regression_fcn(x_ve);
+            
+            plot(app.UIAxes, x_ve, y_ve,'r-','LineWidth',1.5,'DisplayName','Hàm hồi quy');
+            
+            if ~isempty(x_dudoan)
+                 plot(app.UIAxes, x_dudoan, y_dudoan, 'g*', 'MarkerSize', 10, 'DisplayName', 'Dự đoán');
+            end
+
+            title(app.UIAxes, ['Hồi quy ' pp_hoiquy]);
+            xlabel(app.UIAxes, 'X');
+            ylabel(app.UIAxes, 'Y');
+            legend(app.UIAxes, 'show', 'Location', 'best');
+            grid(app.UIAxes, 'on');
+            hold(app.UIAxes, 'off');
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Title')
+            xlabel(app.UIAxes, 'X')
+            ylabel(app.UIAxes, 'Y')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.Position = [310 269 300 185];
+
+            % Create ChnPPHiquyDropDownLabel
+            app.ChnPPHiquyDropDownLabel = uilabel(app.UIFigure);
+            app.ChnPPHiquyDropDownLabel.HorizontalAlignment = 'right';
+            app.ChnPPHiquyDropDownLabel.Position = [17 269 97 22];
+            app.ChnPPHiquyDropDownLabel.Text = 'Chọn PP Hồi quy';
+
+            % Create ppDropDown
+            app.ppDropDown = uidropdown(app.UIFigure);
+            app.ppDropDown.Items = {'Tuyến tính', 'Hàm mũ (y = a*e^(bx))', 'Hàm mũ (y = a*x^b)', 'Logarit'};
+            app.ppDropDown.Position = [129 269 182 22];
+            app.ppDropDown.Value = 'Tuyến tính';
+
+            % Create GitrdonTextAreaLabel
+            app.GitrdonTextAreaLabel = uilabel(app.UIFigure);
+            app.GitrdonTextAreaLabel.HorizontalAlignment = 'right';
+            app.GitrdonTextAreaLabel.Position = [19 110 85 22];
+            app.GitrdonTextAreaLabel.Text = 'Giá trị dự đoán';
+
+            % Create xdudoanTextArea
+            app.xdudoanTextArea = uitextarea(app.UIFigure);
+            app.xdudoanTextArea.Position = [119 110 159 24];
+
+            % Create ketquaptLabel
+            app.ketquaptLabel = uilabel(app.UIFigure);
+            app.ketquaptLabel.Position = [81 190 162 22];
+            app.ketquaptLabel.Text = 'Kết quả phương trình hồi quy';
+
+            % Create ketquadudoanLabel
+            app.ketquadudoanLabel = uilabel(app.UIFigure);
+            app.ketquadudoanLabel.Position = [414 111 129 22];
+            app.ketquadudoanLabel.Text = 'Kết quả dự đoán';
+
+            % Create hoiquyButton
+            app.hoiquyButton = uibutton(app.UIFigure, 'push');
+            app.hoiquyButton.ButtonPushedFcn = createCallbackFcn(app, @hoiquyButtonPushed, true);
+            app.hoiquyButton.Position = [407 203 144 22];
+            app.hoiquyButton.Text = 'Tính Hồi quy & Dự đoán';
+
+            % Create NhpdliuxEditFieldLabel
+            app.NhpdliuxEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuxEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuxEditFieldLabel.Position = [17 411 83 22];
+            app.NhpdliuxEditFieldLabel.Text = 'Nhập dữ liệu x';
+
+            % Create xEditField
+            app.xEditField = uieditfield(app.UIFigure, 'text');
+            app.xEditField.Position = [115 411 154 22];
+
+            % Create NhpdliuyEditFieldLabel
+            app.NhpdliuyEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuyEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuyEditFieldLabel.Position = [17 338 83 22];
+            app.NhpdliuyEditFieldLabel.Text = 'Nhập dữ liệu y';
+
+            % Create yEditField
+            app.yEditField = uieditfield(app.UIFigure, 'text');
+            app.yEditField.Position = [115 338 154 22];
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = HOIQUY
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
