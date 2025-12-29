@@ -1,0 +1,290 @@
+classdef TICHPHAN < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                matlab.ui.Figure
+        edtB                    matlab.ui.control.NumericEditField
+        NhpgitrcntnhohmLabel_3  matlab.ui.control.Label
+        edtResult               matlab.ui.control.EditField
+        btnCalc                 matlab.ui.control.Button
+        edtN                    matlab.ui.control.NumericEditField
+        NhpgitrcntnhohmLabel_2  matlab.ui.control.Label
+        edtA                    matlab.ui.control.NumericEditField
+        NhpgitrcntnhohmLabel    matlab.ui.control.Label
+        ddMethod                matlab.ui.control.DropDown
+        Label                   matlab.ui.control.Label
+        edtHam                  matlab.ui.control.EditField
+        NhphmsEditFieldLabel    matlab.ui.control.Label
+        Hoac                    matlab.ui.control.Label
+        edtY                    matlab.ui.control.EditField
+        NhpdliuyEditFieldLabel  matlab.ui.control.Label
+        edtX                    matlab.ui.control.EditField
+        NhpdliuxEditFieldLabel  matlab.ui.control.Label
+    end
+
+    
+  methods (Access = private)
+    
+    % 1. Phương pháp Hình thang
+    function I = calc_Trapezoidal(~, x, y)
+        n = length(x) - 1;
+        if n < 1, I = 0; return; end
+        
+        h = x(2) - x(1);
+        % Công thức: h/2 * (y0 + 2(y1+...+yn-1) + yn)
+        sum_y = y(1) + 2 * sum(y(2:end-1)) + y(end);
+        I = (h/2) * sum_y;
+    end
+
+    % 2. Phương pháp Simpson 1/3
+    function I = calc_Simpson13(~, x, y)
+        n = length(x) - 1;
+        % Kiểm tra n phải chẵn
+        if mod(n, 2) ~= 0
+            error('Simpson 1/3 yêu cầu số đoạn N phải là số CHẴN (2, 4, 6...).');
+        end
+        
+        h = x(2) - x(1);
+        % Công thức: h/3 * (y0 + 4*le + 2*chan + yn)
+        odd_sum = sum(y(2:2:end-1));  % Vị trí lẻ
+        even_sum = sum(y(3:2:end-2)); % Vị trí chẵn
+        I = (h/3) * (y(1) + 4*odd_sum + 2*even_sum + y(end));
+    end
+
+    % 3. Phương pháp Simpson 3/8
+    function I = calc_Simpson38(~, x, y)
+        n = length(x) - 1;
+        % Kiểm tra n phải chia hết cho 3
+        if mod(n, 3) ~= 0
+            error('Simpson 3/8 yêu cầu số đoạn N phải CHIA HẾT CHO 3 (3, 6, 9...).');
+        end
+        
+        h = x(2) - x(1);
+        sum_rest = 0;
+        for i = 2:n 
+            if mod(i-1, 3) == 0 
+                c = 2; % Hệ số 2 tại vị trí chia hết cho 3
+            else
+                c = 3; % Hệ số 3 tại vị trí còn lại
+            end
+            sum_rest = sum_rest + c * y(i);
+        end
+        I = (3*h/8) * (y(1) + sum_rest + y(end));
+    end
+end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: btnCalc
+        function btnCalcButtonPushed(app, event)
+          try
+        % Khởi tạo biến
+        x_val = [];
+        y_val = [];
+        
+        % --- BƯỚC 1: XỬ LÝ ĐẦU VÀO ---
+        
+        % Lấy chuỗi từ ô Hàm số
+        rawHam = app.edtHam.Value;
+        
+        % ƯU TIÊN 1: Nếu có nhập Hàm số -> Tính theo Hàm (Yêu cầu 22)
+        if ~isempty(rawHam) && strlength(rawHam) > 0
+            
+            % --- QUAN TRỌNG: Dùng vectorize để tự thêm dấu chấm (.) ---
+            % Ví dụ: người dùng nhập "x^2", lệnh này biến thành "x.^2"
+            strHam = vectorize(rawHam); 
+            
+            % Tạo hàm số từ chuỗi đã sửa
+            f = str2func(['@(x)' strHam]);
+            
+            % Lấy các thông số A, B, N
+            a = app.edtA.Value;
+            b = app.edtB.Value;
+            n = app.edtN.Value;
+            
+            if n <= 0
+                error('Số đoạn N phải lớn hơn 0.');
+            end
+            
+            % Tạo dữ liệu x, y
+            x_val = linspace(a, b, n + 1);
+            y_val = f(x_val);
+            
+        % ƯU TIÊN 2: Nếu ô Hàm trống -> Tính theo dữ liệu bảng (Yêu cầu 21)
+        else
+            strX = app.edtX.Value;
+            strY = app.edtY.Value;
+            
+            if isempty(strX) || isempty(strY)
+                uialert(app.UIFigure, 'Vui lòng nhập Hàm số HOẶC dữ liệu X, Y.', 'Thiếu thông tin');
+                return;
+            end
+            
+            x_val = str2num(strX); %#ok<ST2NM>
+            y_val = str2num(strY); %#ok<ST2NM>
+            
+            if length(x_val) ~= length(y_val)
+                error('Độ dài vector X và Y không bằng nhau.');
+            end
+            
+            % Sắp xếp x tăng dần để tính toán đúng
+            [x_val, idx] = sort(x_val);
+            y_val = y_val(idx);
+        end
+        
+        % --- BƯỚC 2: TÍNH TOÁN ---
+        method = app.ddMethod.Value;
+        ketqua = 0;
+        
+        switch method
+            case 'Hình thang'
+                ketqua = calc_Trapezoidal(app, x_val, y_val);
+                
+            case 'Simpson 1/3'
+                ketqua = calc_Simpson13(app, x_val, y_val);
+                
+            case 'Simpson 3/8'
+                ketqua = calc_Simpson38(app, x_val, y_val);
+        end
+        
+        % --- BƯỚC 3: HIỂN THỊ KẾT QUẢ ---
+        % In ra 6 chữ số thập phân
+        app.edtResult.Value = sprintf('%.6f', ketqua);
+        
+    catch ME
+        % Hiện thông báo lỗi nếu có
+        uialert(app.UIFigure, ME.message, 'Lỗi tính toán');
+          end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create NhpdliuxEditFieldLabel
+            app.NhpdliuxEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuxEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuxEditFieldLabel.Position = [51 416 83 22];
+            app.NhpdliuxEditFieldLabel.Text = 'Nhập dữ liệu x';
+
+            % Create edtX
+            app.edtX = uieditfield(app.UIFigure, 'text');
+            app.edtX.Position = [149 410 147 33];
+
+            % Create NhpdliuyEditFieldLabel
+            app.NhpdliuyEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuyEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuyEditFieldLabel.Position = [52 350 83 22];
+            app.NhpdliuyEditFieldLabel.Text = 'Nhập dữ liệu y';
+
+            % Create edtY
+            app.edtY = uieditfield(app.UIFigure, 'text');
+            app.edtY.Position = [149 344 147 33];
+
+            % Create Hoac
+            app.Hoac = uilabel(app.UIFigure);
+            app.Hoac.Position = [102 301 33 22];
+            app.Hoac.Text = 'Hoặc';
+
+            % Create NhphmsEditFieldLabel
+            app.NhphmsEditFieldLabel = uilabel(app.UIFigure);
+            app.NhphmsEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhphmsEditFieldLabel.Position = [52 255 76 22];
+            app.NhphmsEditFieldLabel.Text = 'Nhập hàm số';
+
+            % Create edtHam
+            app.edtHam = uieditfield(app.UIFigure, 'text');
+            app.edtHam.Position = [149 249 147 33];
+
+            % Create Label
+            app.Label = uilabel(app.UIFigure);
+            app.Label.HorizontalAlignment = 'center';
+            app.Label.Position = [333 416 162 22];
+            app.Label.Text = 'Chọn phương pháp tích phân';
+
+            % Create ddMethod
+            app.ddMethod = uidropdown(app.UIFigure);
+            app.ddMethod.Items = {'Hình thang', 'Simpson 1/3', 'Simpson 3/8'};
+            app.ddMethod.Position = [509 416 100 22];
+            app.ddMethod.Value = 'Hình thang';
+
+            % Create NhpgitrcntnhohmLabel
+            app.NhpgitrcntnhohmLabel = uilabel(app.UIFigure);
+            app.NhpgitrcntnhohmLabel.HorizontalAlignment = 'right';
+            app.NhpgitrcntnhohmLabel.Position = [333 355 188 22];
+            app.NhpgitrcntnhohmLabel.Text = 'Nhập cận dưới A để tính tích phân';
+
+            % Create edtA
+            app.edtA = uieditfield(app.UIFigure, 'numeric');
+            app.edtA.Position = [548 355 60 22];
+
+            % Create NhpgitrcntnhohmLabel_2
+            app.NhpgitrcntnhohmLabel_2 = uilabel(app.UIFigure);
+            app.NhpgitrcntnhohmLabel_2.HorizontalAlignment = 'right';
+            app.NhpgitrcntnhohmLabel_2.Position = [334 249 46 22];
+            app.NhpgitrcntnhohmLabel_2.Text = 'Nhập N';
+
+            % Create edtN
+            app.edtN = uieditfield(app.UIFigure, 'numeric');
+            app.edtN.Position = [509 249 100 22];
+
+            % Create btnCalc
+            app.btnCalc = uibutton(app.UIFigure, 'push');
+            app.btnCalc.ButtonPushedFcn = createCallbackFcn(app, @btnCalcButtonPushed, true);
+            app.btnCalc.Position = [161 169 124 22];
+            app.btnCalc.Text = 'Kết quả';
+
+            % Create edtResult
+            app.edtResult = uieditfield(app.UIFigure, 'text');
+            app.edtResult.Position = [334 167 100 27];
+
+            % Create NhpgitrcntnhohmLabel_3
+            app.NhpgitrcntnhohmLabel_3 = uilabel(app.UIFigure);
+            app.NhpgitrcntnhohmLabel_3.HorizontalAlignment = 'right';
+            app.NhpgitrcntnhohmLabel_3.Position = [333 301 184 22];
+            app.NhpgitrcntnhohmLabel_3.Text = 'Nhập cận trên B để tính tích phân';
+
+            % Create edtB
+            app.edtB = uieditfield(app.UIFigure, 'numeric');
+            app.edtB.Position = [548 301 61 22];
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = TICHPHAN
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
