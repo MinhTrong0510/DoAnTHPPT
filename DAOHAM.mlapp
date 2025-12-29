@@ -1,0 +1,517 @@
+classdef DAOHAM < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                matlab.ui.Figure
+        CapDaoHam               matlab.ui.control.DropDown
+        Label_3                 matlab.ui.control.Label
+        Nghiem                  matlab.ui.control.EditField
+        Dulieuy                 matlab.ui.control.EditField
+        NhpdliuyEditFieldLabel  matlab.ui.control.Label
+        Hamso                   matlab.ui.control.EditField
+        NhphmsEditFieldLabel    matlab.ui.control.Label
+        Dulieux                 matlab.ui.control.EditField
+        NhpdliuxEditFieldLabel  matlab.ui.control.Label
+        Ketqua                  matlab.ui.control.Button
+        saiso                   matlab.ui.control.DropDown
+        Label_2                 matlab.ui.control.Label
+        Phuongphapdaoham        matlab.ui.control.DropDown
+        Label                   matlab.ui.control.Label
+        giatricantinh           matlab.ui.control.NumericEditField
+        NhpgitrcntnhohmLabel    matlab.ui.control.Label
+        Buoch                   matlab.ui.control.NumericEditField
+        NhpbchEditFieldLabel    matlab.ui.control.Label
+        Hoac                    matlab.ui.control.Label
+    end
+
+    
+    methods (Access = private)      
+      function kq = tinh_Tien(app, is_func, f, y_arr, idx)
+            h = app.Buoch.Value;
+            x_val = app.giatricantinh.Value;
+            sai_so = app.saiso.Value;
+            if isprop(app, 'CapDaoHam'), cap = app.CapDaoHam.Value; else, cap = 'Cấp 1'; end
+            
+            kq = NaN;
+            if is_func
+                % --- Tính từ Hàm số ---
+                if strcmp(cap, 'Cấp 1')
+                    if strcmp(sai_so, 'O(h^4)')
+                        kq = (-25*f(x_val) + 48*f(x_val+h) - 36*f(x_val+2*h) + 16*f(x_val+3*h) - 3*f(x_val+4*h)) / (12*h);
+                    elseif strcmp(sai_so, 'O(h^2)'), kq = (-f(x_val + 2*h) + 4*f(x_val + h) - 3*f(x_val)) / (2*h);
+                    else, kq = (f(x_val + h) - f(x_val)) / h; end
+                else % Cấp 2
+                    if strcmp(sai_so, 'O(h^4)')
+                        kq = (45*f(x_val) - 154*f(x_val+h) + 214*f(x_val+2*h) - 156*f(x_val+3*h) + 61*f(x_val+4*h) - 10*f(x_val+5*h)) / (12*h^2);
+                    else, kq = (f(x_val + 2*h) - 2*f(x_val + h) + f(x_val)) / (h^2); end
+                end
+            else
+                % --- Tính từ Dữ liệu ---
+                if strcmp(cap, 'Cấp 1')
+                    if strcmp(sai_so, 'O(h^4)')
+                        if idx <= length(y_arr)-4
+                            kq = (-25*y_arr(idx) + 48*y_arr(idx+1) - 36*y_arr(idx+2) + 16*y_arr(idx+3) - 3*y_arr(idx+4)) / (12*h);
+                        else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Tiến O(h^4)', 'Lỗi'); end
+                    elseif strcmp(sai_so, 'O(h^2)')
+                        if idx <= length(y_arr)-2, kq = (-y_arr(idx+2) + 4*y_arr(idx+1) - 3*y_arr(idx)) / (2*h);
+                        else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Tiến O(h^2)', 'Lỗi'); end
+                    else
+                        if idx < length(y_arr), kq = (y_arr(idx+1) - y_arr(idx)) / h; end
+                    end
+                else % Cấp 2
+                    if strcmp(sai_so, 'O(h^4)')
+                        if idx <= length(y_arr)-5
+                            kq = (45*y_arr(idx) - 154*y_arr(idx+1) + 214*y_arr(idx+2) - 156*y_arr(idx+3) + 61*y_arr(idx+4) - 10*y_arr(idx+5)) / (12*h^2);
+                        else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Tiến O(h^4)', 'Lỗi'); end
+                    elseif strcmp(sai_so, 'O(h^2)')
+                        if idx <= length(y_arr)-3, kq = (2*y_arr(idx) - 5*y_arr(idx+1) + 4*y_arr(idx+2) - y_arr(idx+3)) / (h^2);
+                        else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Tiến O(h^2)', 'Lỗi'); end
+                    else
+                        if idx <= length(y_arr)-2, kq = (y_arr(idx+2) - 2*y_arr(idx+1) + y_arr(idx)) / (h^2); end
+                    end
+                end
+            end
+        end
+
+        % =========================================================================
+        % HÀM 2: TÍNH LÙI
+        % =========================================================================
+        function kq = tinh_Lui(app, is_func, f, y_arr, idx)
+            h = app.Buoch.Value;
+            x_val = app.giatricantinh.Value;
+            sai_so = app.saiso.Value;
+            if isprop(app, 'CapDaoHam'), cap = app.CapDaoHam.Value; else, cap = 'Cấp 1'; end
+            
+            kq = NaN;
+            if is_func
+                % --- Tính từ Hàm số ---
+                if strcmp(cap, 'Cấp 1')
+                    if strcmp(sai_so, 'O(h^4)')
+                        kq = (25*f(x_val) - 48*f(x_val-h) + 36*f(x_val-2*h) - 16*f(x_val-3*h) + 3*f(x_val-4*h)) / (12*h);
+                    elseif strcmp(sai_so, 'O(h^2)'), kq = (3*f(x_val) - 4*f(x_val - h) + f(x_val - 2*h)) / (2*h);
+                    else, kq = (f(x_val) - f(x_val - h)) / h; end
+                else % Cấp 2
+                    if strcmp(sai_so, 'O(h^4)')
+                        kq = (45*f(x_val) - 154*f(x_val-h) + 214*f(x_val-2*h) - 156*f(x_val-3*h) + 61*f(x_val-4*h) - 10*f(x_val-5*h)) / (12*h^2);
+                    else, kq = (f(x_val) - 2*f(x_val - h) + f(x_val - 2*h)) / (h^2); end
+                end
+            else
+                % --- Tính từ Dữ liệu ---
+                if strcmp(cap, 'Cấp 1')
+                    if strcmp(sai_so, 'O(h^4)')
+                        if idx >= 5
+                            kq = (25*y_arr(idx) - 48*y_arr(idx-1) + 36*y_arr(idx-2) - 16*y_arr(idx-3) + 3*y_arr(idx-4)) / (12*h);
+                        else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Lùi O(h^4)', 'Lỗi'); end
+                    elseif strcmp(sai_so, 'O(h^2)')
+                        if idx >= 3, kq = (3*y_arr(idx) - 4*y_arr(idx-1) + y_arr(idx-2)) / (2*h);
+                        else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Lùi O(h^2)', 'Lỗi'); end
+                    else
+                        if idx > 1, kq = (y_arr(idx) - y_arr(idx-1)) / h; end
+                    end
+                else % Cấp 2
+                    if strcmp(sai_so, 'O(h^4)')
+                        if idx >= 6
+                            kq = (45*y_arr(idx) - 154*y_arr(idx-1) + 214*y_arr(idx-2) - 156*y_arr(idx-3) + 61*y_arr(idx-4) - 10*y_arr(idx-5)) / (12*h^2);
+                        else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Lùi O(h^4)', 'Lỗi'); end
+                    elseif strcmp(sai_so, 'O(h^2)')
+                        if idx >= 4, kq = (2*y_arr(idx) - 5*y_arr(idx-1) + 4*y_arr(idx-2) - y_arr(idx-3)) / (h^2);
+                        else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Lùi O(h^2)', 'Lỗi'); end
+                    else
+                        if idx >= 3, kq = (y_arr(idx) - 2*y_arr(idx-1) + y_arr(idx-2)) / (h^2); end
+                    end
+                end
+            end
+        end
+
+        % =========================================================================
+        % HÀM 3: TÍNH TRUNG TÂM
+        % =========================================================================
+        function kq = tinh_TrungTam(app, is_func, f, y_arr, idx)
+            h = app.Buoch.Value;
+            x_val = app.giatricantinh.Value;
+            sai_so = app.saiso.Value;
+            if isprop(app, 'CapDaoHam'), cap = app.CapDaoHam.Value; else, cap = 'Cấp 1'; end
+            
+            kq = NaN;
+            if is_func
+                % --- Tính từ Hàm số ---
+                if strcmp(cap, 'Cấp 1')
+                    if strcmp(sai_so, 'O(h^4)')
+                        kq = (-f(x_val + 2*h) + 8*f(x_val + h) - 8*f(x_val - h) + f(x_val - 2*h)) / (12*h);
+                    else, kq = (f(x_val + h) - f(x_val - h)) / (2*h); end
+                else % Cấp 2
+                    if strcmp(sai_so, 'O(h^4)')
+                        kq = (-f(x_val + 2*h) + 16*f(x_val + h) - 30*f(x_val) + 16*f(x_val - h) - f(x_val - 2*h)) / (12*h^2);
+                    else, kq = (f(x_val + h) - 2*f(x_val) + f(x_val - h)) / (h^2); end
+                end
+            else
+                % --- Tính từ Dữ liệu ---
+                if strcmp(cap, 'Cấp 1')
+                    if strcmp(sai_so, 'O(h^4)')
+                        if idx > 2 && idx <= length(y_arr)-2
+                            kq = (-y_arr(idx+2) + 8*y_arr(idx+1) - 8*y_arr(idx-1) + y_arr(idx-2)) / (12*h);
+                        else, uialert(app.UIFigure, 'Cần 5 điểm cho Trung tâm O(h^4)!', 'Lỗi'); end
+                    else
+                        if idx > 1 && idx < length(y_arr), kq = (y_arr(idx+1) - y_arr(idx-1)) / (2*h); end
+                    end
+                else % Cấp 2
+                    if strcmp(sai_so, 'O(h^4)')
+                        if idx > 2 && idx <= length(y_arr)-2
+                            kq = (-y_arr(idx+2) + 16*y_arr(idx+1) - 30*y_arr(idx) + 16*y_arr(idx-1) - y_arr(idx-2)) / (12*h^2);
+                        else, uialert(app.UIFigure, 'Cần 5 điểm cho Trung tâm O(h^4)!', 'Lỗi'); end
+                    else
+                        if idx > 1 && idx < length(y_arr), kq = (y_arr(idx+1) - 2*y_arr(idx) + y_arr(idx-1)) / (h^2); end
+                    end
+                end
+            end
+        end
+    end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: Ketqua
+        function KetquaButtonPushed(app, event)
+  % Code xử lý nút Kết quả (Đã bổ sung Đạo hàm cấp 2)
+            try
+                % --- BƯỚC 1: LẤY DỮ LIỆU ĐẦU VÀO ---
+                pp = app.Phuongphapdaoham.Value;
+                sai_so = app.saiso.Value;
+                
+                % Lấy cấp đạo hàm
+                if isprop(app, 'CapDaoHam')
+                    cap_dao_ham = app.CapDaoHam.Value;
+                else
+                    cap_dao_ham = 'Cấp 1'; 
+                end
+
+                h = app.Buoch.Value; 
+                x_val = app.giatricantinh.Value;
+                
+                if isnan(h) || isnan(x_val)
+                     uialert(app.UIFigure, 'Bước h và Giá trị tính phải là số!', 'Lỗi');
+                     return;
+                end
+                
+                ket_qua = NaN;
+
+                % =========================================================
+                % TRƯỜNG HỢP A: TÍNH TỪ HÀM SỐ (Phần này bạn đã làm TỐT)
+                % =========================================================
+                if ~isempty(app.Hamso.Value)
+                    str_ham = app.Hamso.Value;
+                    f = str2func(['@(x) ' str_ham]);
+                    
+                    % --- ĐẠO HÀM CẤP 1 (HÀM SỐ) ---
+                    if strcmp(cap_dao_ham, 'Cấp 1')
+                        switch pp
+                            case 'Xấp xỉ tiến'
+                                if strcmp(sai_so, 'O(h^4)')
+                                    ket_qua = (-25*f(x_val) + 48*f(x_val+h) - 36*f(x_val+2*h) + 16*f(x_val+3*h) - 3*f(x_val+4*h)) / (12*h);
+                                elseif strcmp(sai_so, 'O(h^2)')
+                                    ket_qua = (-f(x_val + 2*h) + 4*f(x_val + h) - 3*f(x_val)) / (2*h);
+                                else
+                                    ket_qua = (f(x_val + h) - f(x_val)) / h;
+                                end
+                            case 'Lùi'
+                                if strcmp(sai_so, 'O(h^4)')
+                                    ket_qua = (25*f(x_val) - 48*f(x_val-h) + 36*f(x_val-2*h) - 16*f(x_val-3*h) + 3*f(x_val-4*h)) / (12*h);
+                                elseif strcmp(sai_so, 'O(h^2)')
+                                    ket_qua = (3*f(x_val) - 4*f(x_val - h) + f(x_val - 2*h)) / (2*h);
+                                else
+                                    ket_qua = (f(x_val) - f(x_val - h)) / h;
+                                end
+                            case 'Trung tâm'
+                                if strcmp(sai_so, 'O(h^4)')
+                                    ket_qua = (-f(x_val + 2*h) + 8*f(x_val + h) - 8*f(x_val - h) + f(x_val - 2*h)) / (12*h);
+                                else
+                                    ket_qua = (f(x_val + h) - f(x_val - h)) / (2*h);
+                                end
+                        end
+                    
+                    % --- ĐẠO HÀM CẤP 2 (HÀM SỐ) ---
+                    else 
+                        switch pp
+                            case 'Xấp xỉ tiến'
+                                if strcmp(sai_so, 'O(h^4)')
+                                    ket_qua = (45*f(x_val) - 154*f(x_val+h) + 214*f(x_val+2*h) - 156*f(x_val+3*h) + 61*f(x_val+4*h) - 10*f(x_val+5*h)) / (12*h^2);
+                                else
+                                    ket_qua = (f(x_val + 2*h) - 2*f(x_val + h) + f(x_val)) / (h^2);
+                                end 
+                            case 'Lùi'
+                                if strcmp(sai_so, 'O(h^4)')
+                                    ket_qua = (45*f(x_val) - 154*f(x_val-h) + 214*f(x_val-2*h) - 156*f(x_val-3*h) + 61*f(x_val-4*h) - 10*f(x_val-5*h)) / (12*h^2);
+                                else
+                                    ket_qua = (f(x_val) - 2*f(x_val - h) + f(x_val - 2*h)) / (h^2);
+                                end
+                            case 'Trung tâm'
+                                if strcmp(sai_so, 'O(h^4)')
+                                    ket_qua = (-f(x_val + 2*h) + 16*f(x_val + h) - 30*f(x_val) + 16*f(x_val - h) - f(x_val - 2*h)) / (12*h^2);
+                                else
+                                    ket_qua = (f(x_val + h) - 2*f(x_val) + f(x_val - h)) / (h^2);
+                                end
+                        end
+                    end
+
+                % =========================================================
+                % TRƯỜNG HỢP B: TÍNH TỪ DỮ LIỆU X, Y (ĐÃ SỬA LẠI PHẦN SAI VÀ THIẾU)
+                % =========================================================
+                elseif ~isempty(app.Dulieux.Value) && ~isempty(app.Dulieuy.Value)
+                    x_arr = str2num(app.Dulieux.Value); 
+                    y_arr = str2num(app.Dulieuy.Value);
+                    idx = find(x_arr == x_val, 1);
+                    
+                    if isempty(idx)
+                        uialert(app.UIFigure, 'Không tìm thấy x trong dữ liệu!', 'Lỗi'); 
+                        return;
+                    end
+                    
+                    % --- ĐẠO HÀM CẤP 1 (DỮ LIỆU) ---
+                    if strcmp(cap_dao_ham, 'Cấp 1')
+                        switch pp
+                            case 'Xấp xỉ tiến'
+                                if strcmp(sai_so, 'O(h^4)')
+                                    if idx <= length(x_arr)-4
+                                        ket_qua = (-25*y_arr(idx) + 48*y_arr(idx+1) - 36*y_arr(idx+2) + 16*y_arr(idx+3) - 3*y_arr(idx+4)) / (12*h);
+                                    else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Tiến O(h^4)', 'Lỗi'); 
+                                        return; 
+                                    end
+                                elseif strcmp(sai_so, 'O(h^2)') && idx <= length(x_arr)-2
+                                    ket_qua = (-y_arr(idx+2) + 4*y_arr(idx+1) - 3*y_arr(idx)) / (2*h);
+                                elseif idx < length(x_arr)
+                                    ket_qua = (y_arr(idx+1) - y_arr(idx)) / h;
+                                end
+
+                            case 'Lùi'
+                                if strcmp(sai_so, 'O(h^4)')
+                                    if idx >= 5
+                                        ket_qua = (25*y_arr(idx) - 48*y_arr(idx-1) + 36*y_arr(idx-2) - 16*y_arr(idx-3) + 3*y_arr(idx-4)) / (12*h);
+                                    else, uialert(app.UIFigure, 'Thiếu dữ liệu tính Lùi O(h^4)', 'Lỗi'); 
+                                        return; 
+                                    end
+                                elseif strcmp(sai_so, 'O(h^2)') && idx >= 3
+                                    ket_qua = (3*y_arr(idx) - 4*y_arr(idx-1) + y_arr(idx-2)) / (2*h);
+                                elseif idx > 1
+                                    ket_qua = (y_arr(idx) - y_arr(idx-1)) / h;
+                                end
+
+                            case 'Trung tâm'
+                                % <--- ĐÃ SỬA LẠI KHÚC NÀY (Trước đây bạn copy nhầm công thức Tiến vào đây)
+                                if strcmp(sai_so, 'O(h^4)')
+                                   if idx > 2 && idx <= length(x_arr)-2
+                                       % Công thức trung tâm 5 điểm: Lấy 2 điểm trái, 2 điểm phải
+                                       ket_qua = (-y_arr(idx+2) + 8*y_arr(idx+1) - 8*y_arr(idx-1) + y_arr(idx-2)) / (12*h);
+                                   else
+                                       uialert(app.UIFigure, 'Cần 5 điểm dữ liệu cho Trung tâm O(h^4)!', 'Lỗi'); return; 
+                                   end
+                                elseif idx > 1 && idx < length(x_arr)
+                                    ket_qua = (y_arr(idx+1) - y_arr(idx-1)) / (2*h);
+                                end
+                        end
+                        
+                    % --- ĐẠO HÀM CẤP 2 (DỮ LIỆU) ---
+                    else
+                        switch pp
+                            case 'Xấp xỉ tiến'
+                                if strcmp(sai_so, 'O(h^4)')
+                                    if idx <= length(x_arr)-5
+                                        ket_qua = (45*y_arr(idx) - 154*y_arr(idx+1) + 214*y_arr(idx+2) - 156*y_arr(idx+3) + 61*y_arr(idx+4) - 10*y_arr(idx+5)) / (12*h^2);
+                                    else, uialert(app.UIFigure, 'Cần 6 điểm dữ liệu cho Tiến O(h^4)!', 'Lỗi'); 
+                                        return; 
+                                    end
+                                elseif strcmp(sai_so, 'O(h^2)') && idx <= length(x_arr) - 3
+                                    ket_qua = (2*y_arr(idx) - 5*y_arr(idx+1) + 4*y_arr(idx+2) - y_arr(idx+3)) / (h^2);
+                                else
+                                    if idx <= length(x_arr) - 2
+                                        ket_qua = (y_arr(idx+2) - 2*y_arr(idx+1) + y_arr(idx)) / (h^2);
+                                    end
+                                end
+
+                            case 'Lùi'
+                                if strcmp(sai_so, 'O(h^4)')
+                                     if idx >= 6
+                                        ket_qua = (45*y_arr(idx) - 154*y_arr(idx-1) + 214*y_arr(idx-2) - 156*y_arr(idx-3) + 61*y_arr(idx-4) - 10*y_arr(idx-5)) / (12*h^2);
+                                     else, uialert(app.UIFigure, 'Cần 6 điểm dữ liệu cho Lùi O(h^4)!', 'Lỗi'); 
+                                         return; 
+                                     end
+                                elseif strcmp(sai_so, 'O(h^2)') && idx >= 4
+                                    ket_qua = (2*y_arr(idx) - 5*y_arr(idx-1) + 4*y_arr(idx-2) - y_arr(idx-3)) / (h^2);
+                                else
+                                    if idx >= 3
+                                        ket_qua = (y_arr(idx) - 2*y_arr(idx-1) + y_arr(idx-2)) / (h^2);
+                                    end
+                                end
+
+                            case 'Trung tâm'
+                                % <--- ĐÃ BỔ SUNG PHẦN THIẾU Ở ĐÂY (Trước đây chưa có O(h^4) cho Cấp 2 trung tâm)
+                                if strcmp(sai_so, 'O(h^4)')
+                                    if idx > 2 && idx <= length(x_arr)-2
+                                        % Công thức 5 điểm Trung tâm Cấp 2
+                                        ket_qua = (-y_arr(idx+2) + 16*y_arr(idx+1) - 30*y_arr(idx) + 16*y_arr(idx-1) - y_arr(idx-2)) / (12*h^2);
+                                    else
+                                        uialert(app.UIFigure, 'Cần 5 điểm dữ liệu cho Trung tâm O(h^4)!', 'Lỗi'); return;
+                                    end
+                                else
+                                    if idx > 1 && idx < length(x_arr)
+                                        ket_qua = (y_arr(idx+1) - 2*y_arr(idx) + y_arr(idx-1)) / (h^2);
+                                    end
+                                end
+                        end
+                    end
+                else
+                    uialert(app.UIFigure, 'Chưa nhập đủ thông tin!', 'Thông báo'); return;
+                end
+                
+                % --- BƯỚC 3: HIỂN THỊ ---
+                app.Nghiem.Value = num2str(ket_qua);
+                
+            catch err
+                app.Nghiem.Value = 'Lỗi';
+                uialert(app.UIFigure, ['Lỗi: ' err.message], 'Thông báo');
+            end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create Hoac
+            app.Hoac = uilabel(app.UIFigure);
+            app.Hoac.Position = [67 333 33 22];
+            app.Hoac.Text = 'Hoặc';
+
+            % Create NhpbchEditFieldLabel
+            app.NhpbchEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpbchEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpbchEditFieldLabel.Position = [7 230 76 22];
+            app.NhpbchEditFieldLabel.Text = 'Nhập bước h';
+
+            % Create Buoch
+            app.Buoch = uieditfield(app.UIFigure, 'numeric');
+            app.Buoch.Position = [104 230 147 22];
+
+            % Create NhpgitrcntnhohmLabel
+            app.NhpgitrcntnhohmLabel = uilabel(app.UIFigure);
+            app.NhpgitrcntnhohmLabel.HorizontalAlignment = 'right';
+            app.NhpgitrcntnhohmLabel.Position = [323 251 162 22];
+            app.NhpgitrcntnhohmLabel.Text = 'Nhập giá trị cần tính đạo hàm';
+
+            % Create giatricantinh
+            app.giatricantinh = uieditfield(app.UIFigure, 'numeric');
+            app.giatricantinh.Position = [497 251 100 22];
+
+            % Create Label
+            app.Label = uilabel(app.UIFigure);
+            app.Label.HorizontalAlignment = 'center';
+            app.Label.Position = [322 405 160 22];
+            app.Label.Text = 'Chọn phương pháp đạo hàm';
+
+            % Create Phuongphapdaoham
+            app.Phuongphapdaoham = uidropdown(app.UIFigure);
+            app.Phuongphapdaoham.Items = {'Xấp xỉ tiến', 'Lùi', 'Trung tâm'};
+            app.Phuongphapdaoham.Position = [497 405 100 22];
+            app.Phuongphapdaoham.Value = 'Xấp xỉ tiến';
+
+            % Create Label_2
+            app.Label_2 = uilabel(app.UIFigure);
+            app.Label_2.HorizontalAlignment = 'center';
+            app.Label_2.Position = [10 176 101 22];
+            app.Label_2.Text = 'Chọn giá trị sai số';
+
+            % Create saiso
+            app.saiso = uidropdown(app.UIFigure);
+            app.saiso.Items = {'O(h)', 'O(h^2)', 'O(h^4)'};
+            app.saiso.Position = [152 176 99 22];
+            app.saiso.Value = 'O(h)';
+
+            % Create Ketqua
+            app.Ketqua = uibutton(app.UIFigure, 'push');
+            app.Ketqua.ButtonPushedFcn = createCallbackFcn(app, @KetquaButtonPushed, true);
+            app.Ketqua.Position = [324 197 124 22];
+            app.Ketqua.Text = 'Kết quả';
+
+            % Create NhpdliuxEditFieldLabel
+            app.NhpdliuxEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuxEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuxEditFieldLabel.Position = [6 432 83 22];
+            app.NhpdliuxEditFieldLabel.Text = 'Nhập dữ liệu x';
+
+            % Create Dulieux
+            app.Dulieux = uieditfield(app.UIFigure, 'text');
+            app.Dulieux.Position = [104 426 147 33];
+
+            % Create NhphmsEditFieldLabel
+            app.NhphmsEditFieldLabel = uilabel(app.UIFigure);
+            app.NhphmsEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhphmsEditFieldLabel.Position = [7 279 76 22];
+            app.NhphmsEditFieldLabel.Text = 'Nhập hàm số';
+
+            % Create Hamso
+            app.Hamso = uieditfield(app.UIFigure, 'text');
+            app.Hamso.Position = [104 273 147 33];
+
+            % Create NhpdliuyEditFieldLabel
+            app.NhpdliuyEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuyEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuyEditFieldLabel.Position = [7 388 83 22];
+            app.NhpdliuyEditFieldLabel.Text = 'Nhập dữ liệu y';
+
+            % Create Dulieuy
+            app.Dulieuy = uieditfield(app.UIFigure, 'text');
+            app.Dulieuy.Position = [104 382 147 33];
+
+            % Create Nghiem
+            app.Nghiem = uieditfield(app.UIFigure, 'text');
+            app.Nghiem.Position = [497 195 100 27];
+
+            % Create Label_3
+            app.Label_3 = uilabel(app.UIFigure);
+            app.Label_3.HorizontalAlignment = 'center';
+            app.Label_3.Position = [323 333 106 22];
+            app.Label_3.Text = 'Chọn cấp đạo hàm';
+
+            % Create CapDaoHam
+            app.CapDaoHam = uidropdown(app.UIFigure);
+            app.CapDaoHam.Items = {'Cấp 1', 'Cấp 2'};
+            app.CapDaoHam.Position = [497 333 99 22];
+            app.CapDaoHam.Value = 'Cấp 1';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = DAOHAM
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
